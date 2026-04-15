@@ -12,3 +12,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - `DuckDBAdapter` with query execution, non-query execution, schema introspection, and optimized CSV export via `COPY`.
 - Connection caching and graceful shutdown on extension deactivation.
 - Built on [`@duckdb/node-api`](https://www.npmjs.com/package/@duckdb/node-api), the official async Node bindings with prebuilt binaries (no `node-gyp` toolchain at install time).
+
+## [1.0.1] — Build Update
+
+### Added
+- Build update
