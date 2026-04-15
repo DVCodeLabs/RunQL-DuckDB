@@ -1,0 +1,57 @@
+{
+  "name": "runql-duckdb",
+  "displayName": "RunQL DuckDB Connector",
+  "description": "Optional DuckDB connector for RunQL.",
+  "publisher": "runql",
+  "icon": "media/icon.png",
+  "version": "0.0.1",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/DVCodeLabs/RunQL-DuckDB.git"
+  },
+  "bugs": {
+    "url": "https://github.com/DVCodeLabs/RunQL-DuckDB/issues"
+  },
+  "homepage": "https://runql.com/opensource/",
+  "keywords": [
+    "vscode",
+    "vscode-extension",
+    "sql",
+    "duckdb",
+    "motherduck",
+    "database",
+    "runql"
+  ],
+  "engines": {
+    "vscode": "^1.96.0"
+  },
+  "categories": [
+    "Data Science",
+    "Programming Languages",
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "extensionDependencies": [
+    "runql.runql"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {},
+  "scripts": {
+    "vscode:prepublish": "npm run package",
+    "compile": "node esbuild.js",
+    "watch": "node esbuild.js --watch",
+    "package": "node esbuild.js --production"
+  },
+  "devDependencies": {
+    "@types/node": "20.x",
+    "@types/vscode": "^1.96.0",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.7.2"
+  },
+  "dependencies": {
+    "@duckdb/node-api": "^1.4.0-alpha.25"
+  }
+}
