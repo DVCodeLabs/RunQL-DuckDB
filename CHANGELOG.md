@@ -17,3 +17,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 - Build update
+
+## [1.1.0] — 2026-05-07
+
+### Added
+- Support for connection types in the RunQL Extension/IDE for selecting either data access or db admin connections.

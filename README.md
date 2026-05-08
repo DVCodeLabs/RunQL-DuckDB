@@ -40,6 +40,12 @@ On activation, this extension acquires the RunQL extension API and calls:
 
 The adapter uses [`@duckdb/node-api`](https://www.npmjs.com/package/@duckdb/node-api), DuckDB Labs' official async Node bindings. It ships prebuilt native binaries per platform, which is why the connector is published as platform-specific VSIXs (Windows, macOS Intel/Apple Silicon, Linux x64/ARM64) rather than a universal package.
 
+## DB Admin connection type
+
+RunQL core supports an optional `data_access` / `db_admin` connection type for providers that explicitly opt in with `supports.dbAdminConnectionType`. This connector does not currently enable DB Admin mode, so no user-facing behavior changes are required for DuckDB connections.
+
+DuckDB usually operates against a selected local file, in-memory database, or MotherDuck connection string, so a separate DB Admin mode is not needed unless the connector adds a distinct system-catalog or maintenance workflow.
+
 ## Building from source
 
 ```bash

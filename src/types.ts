@@ -1,5 +1,7 @@
 import * as vscode from 'vscode';
 
+export type ConnectionType = 'data_access' | 'db_admin';
+
 export interface ConnectionProfile {
   id: string;
   name: string;
@@ -13,6 +15,7 @@ export interface ConnectionProfile {
   sslMode?: string;
   authMode?: string;
   credentialStorageMode?: 'session' | 'secretStorage' | 'browser';
+  connectionType?: ConnectionType;
   filePath?: string;
   warehouse?: string;
   httpPath?: string;
@@ -148,7 +151,7 @@ export interface DPProviderDescriptor {
       placeholder?: string;
       description?: string;
       defaultValue?: string | number | boolean;
-      options?: Array<{ value: string; label: string }>;
+      options?: Array<{ value: string; label: string; description?: string }>;
       min?: number;
       max?: number;
       step?: number;
@@ -171,6 +174,11 @@ export interface DPProviderDescriptor {
     }>;
     reuse?: {
       disabled?: boolean;
+      label?: string;
+      sourceDialects?: string[];
+      includeProfileKeys?: string[];
+      excludeProfileKeys?: string[];
+      includeSecretKeys?: string[];
       excludeSecretKeys?: string[];
       autoApplyWhenSingle?: boolean;
     };
@@ -181,6 +189,7 @@ export interface DPProviderDescriptor {
     keypair: boolean;
     introspection: boolean;
     cancellation: boolean;
+    dbAdminConnectionType?: boolean;
   };
 }
 
