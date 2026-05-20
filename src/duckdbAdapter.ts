@@ -66,6 +66,10 @@ function quoteIdentifier(id: string): string {
   return `"${id.replace(/"/g, '""')}"`;
 }
 
+function quoteQualifiedTableName(schema: string, table: string): string {
+  return [...schema.split('.'), table].map(quoteIdentifier).join('.');
+}
+
 function quoteLiteral(value: string): string {
   return `'${value.replace(/'/g, "''")}'`;
 }
@@ -225,22 +229,89 @@ export class DuckDBAdapter implements DbAdapter {
     }
 
     try {
+      const primaryKeyReader = await connection.runAndReadAll(`
+        SELECT
+          kcu.table_catalog,
+          kcu.table_schema,
+          kcu.table_name,
+          kcu.column_name
+        FROM information_schema.table_constraints tc
+        JOIN information_schema.key_column_usage kcu
+          ON kcu.constraint_catalog = tc.constraint_catalog
+         AND kcu.constraint_schema = tc.constraint_schema
+         AND kcu.constraint_name = tc.constraint_name
+        WHERE tc.constraint_type = 'PRIMARY KEY'
+        ORDER BY kcu.table_catalog, kcu.table_schema, kcu.table_name, kcu.ordinal_position
+      `);
+      for (const row of primaryKeyReader.getRowObjectsJson() as Record<string, unknown>[]) {
+        const key = getSchemaKey(String(row.table_catalog), String(row.table_schema));
+        const table = schemasMap.get(key)?.tables.get(String(row.table_name));
+        if (!table) continue;
+        table.primaryKey = table.primaryKey ?? [];
+        table.primaryKey.push(String(row.column_name));
+      }
+    } catch {
+      // Constraint metadata is best-effort for older DuckDB builds.
+    }
+
+    try {
+      const foreignKeyReader = await connection.runAndReadAll(`
+        SELECT
+          fk.table_catalog,
+          fk.table_schema,
+          fk.table_name,
+          fk.column_name,
+          tc.constraint_name,
+          pk.table_catalog AS foreign_catalog,
+          pk.table_schema AS foreign_schema,
+          pk.table_name AS foreign_table,
+          pk.column_name AS foreign_column
+        FROM information_schema.table_constraints tc
+        JOIN information_schema.key_column_usage fk
+          ON fk.constraint_catalog = tc.constraint_catalog
+         AND fk.constraint_schema = tc.constraint_schema
+         AND fk.constraint_name = tc.constraint_name
+        JOIN information_schema.referential_constraints rc
+          ON rc.constraint_catalog = tc.constraint_catalog
+         AND rc.constraint_schema = tc.constraint_schema
+         AND rc.constraint_name = tc.constraint_name
+        JOIN information_schema.key_column_usage pk
+          ON pk.constraint_catalog = rc.unique_constraint_catalog
+         AND pk.constraint_schema = rc.unique_constraint_schema
+         AND pk.constraint_name = rc.unique_constraint_name
+         AND pk.ordinal_position = fk.position_in_unique_constraint
+        WHERE tc.constraint_type = 'FOREIGN KEY'
+        ORDER BY fk.table_catalog, fk.table_schema, fk.table_name, tc.constraint_name, fk.ordinal_position
+      `);
+      for (const row of foreignKeyReader.getRowObjectsJson() as Record<string, unknown>[]) {
+        const key = getSchemaKey(String(row.table_catalog), String(row.table_schema));
+        const table = schemasMap.get(key)?.tables.get(String(row.table_name));
+        if (!table) continue;
+        table.foreignKeys = table.foreignKeys ?? [];
+        table.foreignKeys.push({
+          name: typeof row.constraint_name === 'string' ? row.constraint_name : undefined,
+          column: String(row.column_name),
+          foreignSchema: getDisplayName(String(row.foreign_catalog), String(row.foreign_schema)),
+          foreignTable: String(row.foreign_table),
+          foreignColumn: String(row.foreign_column)
+        });
+      }
+    } catch {
+      // Constraint metadata is best-effort for older DuckDB builds.
+    }
+
+    try {
       const idxReader = await connection.runAndReadAll(`
-        SELECT schema_name, table_name, index_name, is_unique, sql
+        SELECT database_name, schema_name, table_name, index_name, is_unique, sql
         FROM duckdb_indexes()
-        ORDER BY schema_name, table_name, index_name
+        ORDER BY database_name, schema_name, table_name, index_name
       `);
       for (const row of idxReader.getRowObjectsJson() as Record<string, unknown>[]) {
+        const cName = String(row.database_name);
         const sName = String(row.schema_name);
         const tName = String(row.table_name);
 
-        let schema: DuckDBSchemaEntry | undefined;
-        for (const [, s] of schemasMap) {
-          if (s.originalSchema === sName || s.name === sName) {
-            schema = s;
-            break;
-          }
-        }
+        const schema = schemasMap.get(getSchemaKey(cName, sName));
         if (!schema) continue;
         const table = schema.tables.get(tName);
         if (!table) continue;
@@ -272,11 +343,12 @@ export class DuckDBAdapter implements DbAdapter {
       })
       .map((s) => ({
         name: s.name,
-        tables: Array.from(s.tables.values()) as TableModel[],
-        views: Array.from(s.views.values()) as TableModel[],
+        tables: Array.from(s.tables.values()).sort((a, b) => a.name.localeCompare(b.name)) as TableModel[],
+        views: Array.from(s.views.values()).sort((a, b) => a.name.localeCompare(b.name)) as TableModel[],
         procedures: s.procedures,
         functions: s.functions
-      }));
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
 
     return {
       version: '0.2',
@@ -300,7 +372,7 @@ export class DuckDBAdapter implements DbAdapter {
       throw new Error('JSON export not optimized for DuckDB yet');
     }
     const { connection } = await this.openConnection(profile);
-    const fullTableName = `${quoteIdentifier(schema)}.${quoteIdentifier(table)}`;
+    const fullTableName = quoteQualifiedTableName(schema, table);
     const copySql = `COPY (SELECT * FROM ${fullTableName}) TO ${quoteLiteral(outputUri.fsPath)} (HEADER, DELIMITER ',')`;
     await connection.run(copySql);
   }

@@ -22,3 +22,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 - Support for connection types in the RunQL Extension/IDE for selecting either data access or db admin connections.
+
+## [1.1.1] — 2026-05-20
+
+### Added
+- Added support multi-schema introspection
