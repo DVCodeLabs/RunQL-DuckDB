@@ -27,3 +27,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 - Added support multi-schema introspection
+
+## [1.1.2]
+
+### Added
+- publish to Open VSX marketplace

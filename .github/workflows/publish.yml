@@ -75,3 +75,10 @@ jobs:
           done
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
+      - name: Publish to Open VSX
+        run: |
+          for vsix in *.vsix; do
+            npx ovsx publish "$vsix" -p "$OVSX_PAT" --skip-duplicate
+          done
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
