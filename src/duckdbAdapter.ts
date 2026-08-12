@@ -5,6 +5,7 @@ import * as vscode from 'vscode';
 import {
   ConnectionProfile,
   ConnectionSecrets,
+  CopyTableOptions,
   DbAdapter,
   NonQueryResult,
   QueryColumn,
@@ -358,6 +359,76 @@ export class DuckDBAdapter implements DbAdapter {
       dialect: 'duckdb',
       schemas
     };
+  }
+
+  // ─── Optional table-operation capabilities ────────────────────────────────
+
+  async getTableDdl(
+    profile: ConnectionProfile,
+    _secrets: ConnectionSecrets,
+    schema: string | undefined,
+    table: string
+  ): Promise<string> {
+    const { connection } = await this.openConnection(profile);
+    // duckdb_tables() exposes the CREATE TABLE statement as `sql`.
+    const sql = schema
+      ? `SELECT sql FROM duckdb_tables() WHERE schema_name = ${quoteLiteral(schema)} AND table_name = ${quoteLiteral(table)}`
+      : `SELECT sql FROM duckdb_tables() WHERE table_name = ${quoteLiteral(table)}`;
+    const reader = await connection.runAndReadAll(sql);
+    const rows = reader.getRowObjectsJson() as Array<Record<string, unknown>>;
+    if (!rows.length) {
+      throw new Error(`No DuckDB table found for ${schema ? `${schema}.` : ''}${table}.`);
+    }
+    const raw = rows[0].sql;
+    const ddl = typeof raw === 'string' ? raw.trim() : '';
+    if (!ddl) {
+      throw new Error(`DuckDB returned no DDL for ${schema ? `${schema}.` : ''}${table}.`);
+    }
+    return ddl.endsWith(';') ? ddl : `${ddl};`;
+  }
+
+  async dumpTableStructure(
+    profile: ConnectionProfile,
+    secrets: ConnectionSecrets,
+    schema: string | undefined,
+    table: string
+  ): Promise<string> {
+    return this.getTableDdl(profile, secrets, schema, table);
+  }
+
+  async truncateTable(
+    profile: ConnectionProfile,
+    _secrets: ConnectionSecrets,
+    schema: string | undefined,
+    table: string
+  ): Promise<void> {
+    const { connection } = await this.openConnection(profile);
+    const fqn = schema ? quoteQualifiedTableName(schema, table) : quoteIdentifier(table);
+    // DuckDB supports TRUNCATE since 0.5; earlier versions will surface a
+    // parser error, which we let propagate per the spec (adapter errors are
+    // surfaced, never masked with a silent DELETE fallback).
+    await connection.run(`TRUNCATE TABLE ${fqn}`);
+  }
+
+  async copyTable(
+    profile: ConnectionProfile,
+    _secrets: ConnectionSecrets,
+    sourceSchema: string | undefined,
+    sourceTable: string,
+    options: CopyTableOptions
+  ): Promise<void> {
+    const { connection } = await this.openConnection(profile);
+    const src = sourceSchema
+      ? quoteQualifiedTableName(sourceSchema, sourceTable)
+      : quoteIdentifier(sourceTable);
+    const destSchema = options.destSchema ?? sourceSchema;
+    const dst = destSchema
+      ? quoteQualifiedTableName(destSchema, options.destTable)
+      : quoteIdentifier(options.destTable);
+    const sql = options.withData
+      ? `CREATE TABLE ${dst} AS SELECT * FROM ${src}`
+      : `CREATE TABLE ${dst} AS SELECT * FROM ${src} WHERE 1 = 0`;
+    await connection.run(sql);
   }
 
   async exportTable(

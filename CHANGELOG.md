@@ -32,3 +32,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Added
 - publish to Open VSX marketplace
+
+
+## [1.2.0]
+
+### Changes
+
+#### More Table Actions in RunQL Explorer
+
+Right-click any table in RunQL Explorer to:
+
+- Copy the table name
+- Edit the table
+- View table DDL
+- Generate SELECT, INSERT, UPDATE, and DELETE templates
+- Dump table structure
+- Generate mock data
+- Copy, drop, or truncate a table
